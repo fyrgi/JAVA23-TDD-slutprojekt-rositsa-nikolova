@@ -24,7 +24,6 @@ public class ATM {
             return true;
         } else {
             int failedAttempts = bank.getFailedAttempts(cardId);
-            System.out.println(failedAttempts);
             if(failedAttempts < maxAttempts){
                 bank.incrementFailedAttempts(cardId);
             } else {
@@ -43,9 +42,13 @@ public class ATM {
     public void deposit(double amount) {
     }
 
-    public boolean withdraw(double amount) {
-
-        return true;
+    public boolean withdraw(String cardId, int amount) {
+        if(amount < 10 || amount > bank.getBalance(cardId)){
+            return false;
+        } else {
+            bank.setBalance(bank.getBalance(cardId) - amount);
+            return true;
+        }
     }
 
     public int getMaxAttempts() {

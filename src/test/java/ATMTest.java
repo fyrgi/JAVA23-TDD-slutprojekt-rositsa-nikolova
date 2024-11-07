@@ -1,6 +1,8 @@
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockitoAnnotations;
 
 import java.time.LocalDate;
@@ -23,9 +25,7 @@ class ATMTest {
         bankMock = mock(Bank.class);
         atm = new ATM(bankMock);
         cardPinMock = mock(Card.class);
-        // Setup mock and spy for testing
         when(bankMock.getCardById("12345")).thenReturn(cardPinMock);
-        // ako imame spy znachi shte imame prekaleno dylyg kod.
         cardMock = new Card("123456", "1234");
         when(bankMock.getCardById("123456")).thenReturn(cardMock);
     }
@@ -48,34 +48,36 @@ class ATMTest {
     }
 
     @Test
-    @DisplayName("Correct PIN-code")
+    @DisplayName("Correct PIN-code and reset of failed attempts.")
     public void testEnterCorrectPin() {
-        // Stub card's PIN
+        when(bankMock.getCardById(cardPinMock.getCardId())).thenReturn(cardPinMock);
         when(cardPinMock.getPin()).thenReturn("1234");
-        atm.insertCard("12345");
-        boolean result = atm.enterPin("12345", "1234");
+        atm.insertCard(cardPinMock.getCardId());
+        boolean result = atm.enterPin(cardPinMock.getCardId(), "1234");
 
         assertTrue(result);
+        verify(bankMock, times(1)).resetFailedAttempts(cardPinMock.getCardId());
     }
 
     @Test
-    @DisplayName("Wrong pin")
+    @DisplayName("Wrong PIN-code and increase in failed attempts")
     public void testEnterIncorrectPin() {
+        when(bankMock.getCardById(cardPinMock.getCardId())).thenReturn(cardPinMock);
         when(cardPinMock.getPin()).thenReturn("1234");
-        atm.insertCard("12345");
-        boolean result = atm.enterPin("12345", "5678");
+        atm.insertCard(cardPinMock.getCardId());
+        boolean result = atm.enterPin(cardPinMock.getCardId(), "5678");
 
         assertFalse(result);
-        //verify(cardMock, times(1)).incrementFailedAttempts();
+        verify(bankMock, times(1)).incrementFailedAttempts(cardPinMock.getCardId());
     }
 
     @Test
-    @DisplayName("Wrong pin 3 times. Card is locked")
+    @DisplayName("Locked card after pin being wrong 3 times")
     public void testCardLockAfterThreeFailedAttempts() {
         String cardId = cardMock.getCardId();
 
         when(bankMock.getCardById(cardId)).thenReturn(cardMock);
-        when(bankMock.getFailedAttempts(cardId)).thenReturn(1, 2, 3);
+        when(bankMock.getFailedAttempts(cardId)).thenReturn(0, 1, 2, 3);
         when(bankMock.isLocked(cardId)).thenReturn(false);
 
         doAnswer(invocation -> {
@@ -83,14 +85,13 @@ class ATMTest {
             return null;
         }).when(bankMock).lockCard(cardId);
 
-        for (int attempts = 0; attempts < atm.getMaxAttempts(); attempts++) {
+        for (int attempts = bankMock.getFailedAttempts(cardId); attempts < atm.getMaxAttempts(); attempts++) {
             boolean result = atm.enterPin(cardId, "0000");
         }
-        
+
         verify(bankMock, times(1)).lockCard(cardId);
         assertTrue(bankMock.isLocked(cardId));
     }
-
 
     @Test
     @DisplayName("Check the user's balance")
@@ -98,5 +99,37 @@ class ATMTest {
         when(bankMock.getBalance(cardMock.getCardId())).thenReturn(1000.00);
         double balance = atm.checkBalance("123456");
         assertEquals(1000.0, balance);
+    }
+
+    @ParameterizedTest
+    @DisplayName("Withdraw success")
+    @ValueSource(ints = {10, 600, 20, 999, 1000})
+    public void testSuccessfulWithdraw(int requestedAmount){
+        double currentBalance = 1000;
+        double newBalance = currentBalance - requestedAmount;
+        String cardId = cardMock.getCardId();
+        when(bankMock.getBalance(cardId)).thenReturn(currentBalance);
+
+        doAnswer(invocation -> {
+            when(bankMock.getBalance(cardId)).thenReturn(newBalance);
+            return null;
+        }).when(bankMock).setBalance(newBalance);
+
+        atm.withdraw(cardId, requestedAmount);
+        verify(bankMock, times(1)).setBalance(newBalance);
+        assertEquals(newBalance, bankMock.getBalance(cardId));
+    }
+
+    @ParameterizedTest
+    @DisplayName("Withdraw unsuccessful")
+    @ValueSource(ints = {9, -300, 1001})
+    public void testUnsuccessfulWithdraw(int requestedAmount){
+        double currentBalance = 1000;
+        String cardId = cardMock.getCardId();
+
+        when(bankMock.getBalance(cardId)).thenReturn(currentBalance);
+        atm.withdraw(cardId, requestedAmount);
+        verify(bankMock, times(0)).setBalance(anyDouble());
+        assertEquals(currentBalance, bankMock.getBalance(cardId));
     }
 }
