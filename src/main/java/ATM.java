@@ -1,8 +1,9 @@
 public class ATM {
     public int maxAttempts = 3;
     private Bank bank = new Bank();
-
     private Card currentCard;
+
+    boolean liveSession = false;
 
     public ATM(Bank bank) {
         this.bank = bank;
@@ -11,9 +12,11 @@ public class ATM {
     public boolean insertCard(String cardId) {
         currentCard = bank.getCardById(cardId);
         if(bank.isCardValid(cardId)==false){
-            return true;
-        } else {
+            liveSession = false;
             return false;
+        } else {
+            liveSession = true;
+            return true;
         }
     }
 
@@ -57,5 +60,15 @@ public class ATM {
 
     public String getBankName() {
         return Bank.getBankName();
+    }
+
+    public boolean endSession(String cardId) {
+        currentCard = null;
+        this.liveSession = false;
+        return liveSession;
+    }
+
+    public Card getCurrentCard() {
+        return currentCard;
     }
 }

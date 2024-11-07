@@ -144,4 +144,19 @@ class ATMTest {
             mockedStaticBank.verify(Bank::getBankName, times(1));
         }
     }
+
+    @Test
+    @DisplayName("Customer cancels operations")
+    public void testSessionIsClosed() {
+        when(bankMock.isCardValid(cardMock.getCardId())).thenReturn(true);
+        when(bankMock.getCardById(cardMock.getCardId())).thenReturn(cardMock);
+
+        boolean isInserted = atm.insertCard(cardMock.getCardId());
+        assertTrue(isInserted);
+        assertTrue(atm.liveSession);
+        
+        boolean isSessionLive = atm.endSession(cardMock.getCardId());
+        assertFalse(isSessionLive);
+        assertNull(atm.getCurrentCard());
+    }
 }

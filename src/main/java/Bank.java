@@ -15,21 +15,8 @@ public class Bank implements BankInterface {
     }
     public Bank(){}
     public boolean isCardValid(String cardId) {
-        /*
-        Card card = cardOfCustomer.get(cardId.trim());
-        if(card.getExpiryDate().isAfter(YearMonth.now())){
-            System.out.println("expired card");
-            return false;
-        }
-
-        if(card.isLocked()) {
-            System.out.println("the card is locked");
-            return false;
-        }
-*/
         return true;
     }
-
     public int getFailedAttempts(String cardId) { return failedAttempts; }
     public void setFailedAttempts(String cardId, int attempts) { this.failedAttempts = attempts; };
     public void incrementFailedAttempts(String cardId) { this.failedAttempts = failedAttempts + 1; }
