@@ -3,6 +3,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 
 import java.time.LocalDate;
@@ -29,7 +30,6 @@ class ATMTest {
         cardMock = new Card("123456", "1234");
         when(bankMock.getCardById("123456")).thenReturn(cardMock);
     }
-
 
     @Test
     @DisplayName("Not a valid card")
@@ -131,5 +131,17 @@ class ATMTest {
         atm.withdraw(cardId, requestedAmount);
         verify(bankMock, times(0)).setBalance(anyDouble());
         assertEquals(currentBalance, bankMock.getBalance(cardId));
+    }
+
+    @Test
+    @DisplayName("Bank name")
+    public void testGetBankName() {
+        // Mock the static method `getBankName` in the `Bank` class
+        try (MockedStatic<Bank> mockedStaticBank = mockStatic(Bank.class)) {
+
+            mockedStaticBank.when(Bank::getBankName).thenReturn("Swedbank");
+            assertEquals("Swedbank", atm.getBankName());
+            mockedStaticBank.verify(Bank::getBankName, times(1));
+        }
     }
 }

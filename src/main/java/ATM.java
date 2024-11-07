@@ -54,4 +54,8 @@ public class ATM {
     public int getMaxAttempts() {
         return maxAttempts;
     }
+
+    public String getBankName() {
+        return Bank.getBankName();
+    }
 }

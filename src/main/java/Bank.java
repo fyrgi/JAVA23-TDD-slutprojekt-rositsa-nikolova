@@ -46,6 +46,6 @@ public class Bank implements BankInterface {
     }
 
     public static String getBankName() {
-        return "MockBank";
+        return "Swedbank";
     }
 }
