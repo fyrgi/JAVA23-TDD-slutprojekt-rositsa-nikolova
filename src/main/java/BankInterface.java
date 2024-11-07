@@ -1,4 +1,6 @@
 public interface BankInterface {
-    public Account getAccountByCardId(String id);
-    public boolean isCardLocked(String userId);
+    public Card getCardById(String id);
+    public boolean isCardValid(String userId);
+
+    //public double currentBalance(String cardId);
 }

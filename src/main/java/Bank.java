@@ -1,18 +1,28 @@
+import java.time.YearMonth;
 import java.util.HashMap;
 import java.util.Map;
 
 public class Bank implements BankInterface {
 
-    private Map<String, Account> accountOfCustomer = new HashMap<>();
+    private Map<String, Card> cardOfCustomer = new HashMap<>();
 
-    public Account getAccountByCardId(String id) {
-        return accountOfCustomer.get(id);
+    public Card getCardById(String id) {
+        return cardOfCustomer.get(id);
     }
 
-    public boolean isCardLocked(String cardId) {
-        Account account = accountOfCustomer.get(cardId.trim());
-        System.out.println(account.getBalance());
-        return account != null && account.getCard(cardId).isLocked();
+    public boolean isCardValid(String cardId) {
+        Card card = cardOfCustomer.get(cardId.trim());
+        if(card.getExpiryDate().isAfter(YearMonth.now())){
+            System.out.println("expired card");
+            return false;
+        }
+
+        if(card.isLocked()) {
+            System.out.println("the card is locked");
+            return false;
+        }
+
+        return true;
     }
 
     public static String getBankName() {
