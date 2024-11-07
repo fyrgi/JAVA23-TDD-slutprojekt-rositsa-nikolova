@@ -11,7 +11,7 @@ public class ATM {
 
     public boolean insertCard(String cardId) {
         currentCard = bank.getCardById(cardId);
-        if(bank.isCardValid(cardId)==false){
+        if(bank.isCardValid(cardId) == false){
             liveSession = false;
             return false;
         } else {
@@ -38,11 +38,16 @@ public class ATM {
 
     public double checkBalance(String cardId) {
         double balance = bank.getBalance(cardId);
-        System.out.println(balance);
         return balance;
     }
 
-    public void deposit(double amount) {
+    public void deposit(String cardId, double amount) {
+        double currentBalance = bank.getBalance(cardId);
+        if(amount > 0){
+            bank.setBalance(currentBalance+=amount);
+        } else {
+            System.out.println("The ATM did not detect an amount. If this is an error contact 0913238442");
+        }
     }
 
     public boolean withdraw(String cardId, int amount) {

@@ -10,8 +10,6 @@ public class Card {
 
     public String getPin() { return pin; }
     public void setPin(String pin) { this.pin = pin; }
-
-
     public String getCardId() {
         return cardId;
     }

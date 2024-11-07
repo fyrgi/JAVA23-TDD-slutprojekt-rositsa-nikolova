@@ -168,6 +168,8 @@ class ATMTest {
         when(bankMock.isCardValid(cardId)).thenReturn(true);
         boolean isInserted = atm.insertCard(cardMock.getCardId());
         assertTrue(isInserted);
+        assertEquals(cardMock, atm.getCurrentCard());
+        verify(bankMock, times(1)).getCardById(cardId);
     }
 
     @Test
@@ -178,6 +180,41 @@ class ATMTest {
         when(bankMock.isCardValid(cardId)).thenReturn(false);
         boolean isInserted = atm.insertCard(cardMock.getCardId());
         assertFalse(isInserted);
+        verify(bankMock, times(1)).getCardById(cardId);
+    }
+
+    @Test
+    @DisplayName("Successful deposit")
+    public void testAddedToBalance(){
+        double currentBalance = 50;
+        double deposit = 30.55;
+        double newBalance = currentBalance + deposit;
+        String cardId = cardMock.getCardId();
+
+        when(bankMock.getBalance(cardId)).thenReturn(currentBalance);
+
+        doAnswer(invocation -> {
+            when(bankMock.getBalance(cardId)).thenReturn(newBalance);
+            return null;
+        }).when(bankMock).setBalance(newBalance);
+
+        atm.deposit(cardId, deposit);
+        verify(bankMock, times(1)).setBalance(newBalance);
+        assertEquals(newBalance, bankMock.getBalance(cardId));
+    }
+
+    @ParameterizedTest
+    @DisplayName("Unsuccessful deposit")
+    @ValueSource(doubles = {0.00, -12.55, -158+32})
+    public void testNotAddedToBalance(double attemptedDeposit){
+        double currentBalance = 50;
+        String cardId = cardMock.getCardId();
+
+        when(bankMock.getBalance(cardId)).thenReturn(currentBalance);
+        atm.deposit(cardId, attemptedDeposit);
+
+        verify(bankMock, times(0)).setBalance(anyDouble());
+        assertEquals(currentBalance, bankMock.getBalance(cardId));
     }
 
 }
