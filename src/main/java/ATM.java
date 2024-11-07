@@ -1,4 +1,5 @@
 public class ATM {
+    public int maxAttempts = 3;
     private Bank bank = new Bank();
 
     private Card currentCard;
@@ -17,25 +18,24 @@ public class ATM {
     }
 
     public boolean enterPin(String cardId, String pin) {
+        currentCard = bank.getCardById(cardId);
         if(currentCard.getPin().equals(pin)){
-            currentCard.resetFailedAttempts();
+            bank.resetFailedAttempts(cardId);
             return true;
         } else {
-            int failedAttempts = currentCard.getFailedAttempts();
+            int failedAttempts = bank.getFailedAttempts(cardId);
             System.out.println(failedAttempts);
-            if(failedAttempts < 3){
-                currentCard.incrementFailedAttempts();
+            if(failedAttempts < maxAttempts){
+                bank.incrementFailedAttempts(cardId);
             } else {
-                currentCard.lockCard();
+                bank.lockCard(cardId);
             }
             return false;
         }
     }
 
     public double checkBalance(String cardId) {
-        currentCard = bank.getCardById(cardId);
-        System.out.println(currentCard.getCardId());
-        double balance = currentCard.getBalance();
+        double balance = bank.getBalance(cardId);
         System.out.println(balance);
         return balance;
     }
@@ -48,4 +48,7 @@ public class ATM {
         return true;
     }
 
+    public int getMaxAttempts() {
+        return maxAttempts;
+    }
 }

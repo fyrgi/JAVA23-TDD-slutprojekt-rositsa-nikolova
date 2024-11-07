@@ -11,9 +11,8 @@ import static org.mockito.Mockito.*;
 
 class ATMTest {
     private Bank bankMock;
-    private ATM atm, atmSpy;
-    private Card cardMock, cardSpy;
-    private Bank bankSpy;
+    private ATM atm;
+    private Card cardMock, cardPinMock;
     private LocalDate today = LocalDate.now();
     private LocalDate expiresIn4Years = today.plusYears(4);
     private YearMonth expieresYearMonth = YearMonth.from(expiresIn4Years);
@@ -23,13 +22,12 @@ class ATMTest {
         MockitoAnnotations.openMocks(this);
         bankMock = mock(Bank.class);
         atm = new ATM(bankMock);
-        cardMock = mock(Card.class);
-
+        cardPinMock = mock(Card.class);
         // Setup mock and spy for testing
-        when(bankMock.getCardById("12345")).thenReturn(cardMock);
+        when(bankMock.getCardById("12345")).thenReturn(cardPinMock);
         // ako imame spy znachi shte imame prekaleno dylyg kod.
-        cardSpy = new Card("123456", "1234", expieresYearMonth, 1233.32, false, 0);
-        when(bankMock.getCardById("123456")).thenReturn(cardSpy);
+        cardMock = new Card("123456", "1234");
+        when(bankMock.getCardById("123456")).thenReturn(cardMock);
     }
 
 
@@ -53,8 +51,7 @@ class ATMTest {
     @DisplayName("Correct PIN-code")
     public void testEnterCorrectPin() {
         // Stub card's PIN
-        when(cardMock.getPin()).thenReturn("1234");
-
+        when(cardPinMock.getPin()).thenReturn("1234");
         atm.insertCard("12345");
         boolean result = atm.enterPin("12345", "1234");
 
@@ -64,8 +61,7 @@ class ATMTest {
     @Test
     @DisplayName("Wrong pin")
     public void testEnterIncorrectPin() {
-        when(cardMock.getPin()).thenReturn("1234");
-        //when(cardMock.getFailedAttempts()).thenReturn(0);
+        when(cardPinMock.getPin()).thenReturn("1234");
         atm.insertCard("12345");
         boolean result = atm.enterPin("12345", "5678");
 
@@ -76,25 +72,31 @@ class ATMTest {
     @Test
     @DisplayName("Wrong pin 3 times. Card is locked")
     public void testCardLockAfterThreeFailedAttempts() {
-        when(cardMock.getPin()).thenReturn("1234");
+        String cardId = cardMock.getCardId();
 
-        atm.insertCard("12345");
+        when(bankMock.getCardById(cardId)).thenReturn(cardMock);
+        when(bankMock.getFailedAttempts(cardId)).thenReturn(1, 2, 3);
+        when(bankMock.isLocked(cardId)).thenReturn(false);
 
-        atm.enterPin("12345", "0000");
-        atm.enterPin("12345", "0000");
-        atm.enterPin("12345", "0000");
+        doAnswer(invocation -> {
+            when(bankMock.isLocked(cardId)).thenReturn(true);
+            return null;
+        }).when(bankMock).lockCard(cardId);
 
-        verify(cardMock, times(3)).incrementFailedAttempts();
-        verify(cardMock, times(1)).lockCard();
-        assertTrue(cardMock.isLocked());
+        for (int attempts = 0; attempts < atm.getMaxAttempts(); attempts++) {
+            boolean result = atm.enterPin(cardId, "0000");
+        }
+        
+        verify(bankMock, times(1)).lockCard(cardId);
+        assertTrue(bankMock.isLocked(cardId));
     }
 
 
     @Test
     @DisplayName("Check the user's balance")
     public void testCheckCardsBalance(){
+        when(bankMock.getBalance(cardMock.getCardId())).thenReturn(1000.00);
         double balance = atm.checkBalance("123456");
-        System.out.println(balance);
         assertEquals(1000.0, balance);
     }
 }
