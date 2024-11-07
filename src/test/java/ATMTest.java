@@ -154,9 +154,30 @@ class ATMTest {
         boolean isInserted = atm.insertCard(cardMock.getCardId());
         assertTrue(isInserted);
         assertTrue(atm.liveSession);
-        
+
         boolean isSessionLive = atm.endSession(cardMock.getCardId());
         assertFalse(isSessionLive);
         assertNull(atm.getCurrentCard());
     }
+
+    @Test
+    @DisplayName("Card is inserted")
+    public void testInsertedCard(){
+        String cardId = cardMock.getCardId();
+        when(bankMock.getCardById(cardId)).thenReturn(cardMock);
+        when(bankMock.isCardValid(cardId)).thenReturn(true);
+        boolean isInserted = atm.insertCard(cardMock.getCardId());
+        assertTrue(isInserted);
+    }
+
+    @Test
+    @DisplayName("Card is not inserted")
+    public void testNotInsertedCard(){
+        String cardId = cardMock.getCardId();
+        when(bankMock.getCardById(cardId)).thenReturn(cardMock);
+        when(bankMock.isCardValid(cardId)).thenReturn(false);
+        boolean isInserted = atm.insertCard(cardMock.getCardId());
+        assertFalse(isInserted);
+    }
+
 }
