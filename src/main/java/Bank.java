@@ -12,6 +12,8 @@ public class Bank implements BankInterface {
     public Card getCardById(String id) {
         return cardOfCustomer.get(id);
     }
+
+    public void setPin(String cardId, String pin) { cardOfCustomer.get(cardId).setPin(pin);}
     public Bank(){}
     public boolean isCardValid(String cardId) {
         return true;

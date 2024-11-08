@@ -11,5 +11,6 @@ public interface BankInterface {
     public void resetFailedAttempts(String cardId);
     public double getBalance(String cardId);
     public void setBalance(double balance);
+    public void setPin(String cardId, String pin);
     void setFailedAttempts(String cardId, int attempts);
 }

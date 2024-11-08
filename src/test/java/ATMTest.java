@@ -290,15 +290,20 @@ class ATMTest {
     @Test
     @DisplayName("Change pin and reset failed attempts")
     public void testChangePin() throws ATMOperationException{
-        when(bankMock.getCardById(cardPinMock.getCardId())).thenReturn(cardPinMock);
-        when(cardPinMock.getPin()).thenReturn("1234");
-        atm.insertCard(cardPinMock.getCardId());
+        String cardId = "123456";
+        String oldPin = "1234";
+        String newPin = "8888";
+        String repatNewPin = "8888";
+        when(bankMock.getCardById(cardId)).thenReturn(cardPinMock);
+        when(bankMock.isCardValid(cardId)).thenReturn(true);
+        when(cardPinMock.getPin()).thenReturn(oldPin);
 
-        String newPin = "8888", repatNewPin = "8888";
-        boolean result = atm.changePin(cardPinMock.getCardId(), "1234", newPin, repatNewPin);
-
+        atm.insertCard(cardId);
+        boolean result = atm.changePin(cardId, oldPin, newPin, repatNewPin);
         assertTrue(result);
-        verify(bankMock, times(1)).resetFailedAttempts(cardPinMock.getCardId());
+
+        verify(bankMock, times(1)).resetFailedAttempts(cardId);
+        verify(bankMock, times(1)).setPin(cardId, newPin);
     }
 
     @Test

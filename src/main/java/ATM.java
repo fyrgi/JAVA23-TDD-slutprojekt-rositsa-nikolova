@@ -91,7 +91,7 @@ public class ATM {
         if (pin.equals(currentCard.getPin())) {
             bank.resetFailedAttempts(cardId);
             if (newPin.equals(repatNewPin)) {
-                currentCard.setPin(newPin);
+                bank.setPin(cardId, newPin);
                 return true;
             } else {
                 throw new ATMOperationException("Your new PIN entries mismatch. The operation is aborted.");
