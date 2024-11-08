@@ -66,8 +66,14 @@ class ATMTest {
         when(cardPinMock.getPin()).thenReturn("1234");
         atm.insertCard(cardPinMock.getCardId());
         boolean result = atm.enterPin(cardPinMock.getCardId(), "5678");
-
         assertFalse(result);
+
+        ATMOperationException exception = assertThrows(
+                ATMOperationException.class,
+                () -> atm.enterPin(cardPinMock.getCardId(), "5678")
+        );
+        assertEquals("Card has been locked due to too many incorrect PIN entries.", exception.getMessage());
+
         verify(bankMock, times(1)).incrementFailedAttempts(cardPinMock.getCardId());
     }
 
