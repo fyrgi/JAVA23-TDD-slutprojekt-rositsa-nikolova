@@ -11,7 +11,5 @@ public interface BankInterface {
     public void resetFailedAttempts(String cardId);
     public double getBalance(String cardId);
     public void setBalance(double balance);
-    public YearMonth getExpiryDate(String cardId);
-
     void setFailedAttempts(String cardId, int attempts);
 }

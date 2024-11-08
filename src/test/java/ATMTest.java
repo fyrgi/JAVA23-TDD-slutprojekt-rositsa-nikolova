@@ -16,9 +16,6 @@ class ATMTest {
     private Bank bankMock;
     private ATM atm;
     private Card cardMock, cardPinMock;
-    private LocalDate today = LocalDate.now();
-    private LocalDate expiresIn4Years = today.plusYears(4);
-    private YearMonth expieresYearMonth = YearMonth.from(expiresIn4Years);
 
     @BeforeEach
     public void setUp() {
@@ -27,16 +24,24 @@ class ATMTest {
         atm = new ATM(bankMock);
         cardPinMock = mock(Card.class);
         when(bankMock.getCardById("12345")).thenReturn(cardPinMock);
+        when(bankMock.isCardValid(cardPinMock.getCardId())).thenReturn(true);
         cardMock = new Card("123456", "1234");
         when(bankMock.getCardById("123456")).thenReturn(cardMock);
     }
 
     @Test
     @DisplayName("Not a valid card")
-    public void testCardIsNotValid() {
-        when(bankMock.isCardValid("12345")).thenReturn(false);
-        boolean result = bankMock.isCardValid("12345");
-        assertFalse(result);
+    public void testCardIsNotValid() throws ATMOperationException{
+        when(bankMock.getCardById(cardMock.getCardId())).thenReturn(cardMock);
+        when(bankMock.isCardValid(cardMock.getCardId())).thenReturn(false);
+        ATMOperationException exception = assertThrows(
+                ATMOperationException.class,
+                () -> atm.insertCard(cardMock.getCardId()),
+                "The card is not valid"
+        );
+
+        assertEquals("The card is not valid", exception.getMessage());
+        assertNull(atm.getCurrentCard());
     }
 
     @Test
@@ -49,7 +54,7 @@ class ATMTest {
 
     @Test
     @DisplayName("Correct PIN-code and reset of failed attempts.")
-    public void testEnterCorrectPin() {
+    public void testEnterCorrectPin() throws ATMOperationException {
         when(bankMock.getCardById(cardPinMock.getCardId())).thenReturn(cardPinMock);
         when(cardPinMock.getPin()).thenReturn("1234");
         atm.insertCard(cardPinMock.getCardId());
@@ -62,37 +67,60 @@ class ATMTest {
     @Test
     @DisplayName("Wrong PIN-code and increase in failed attempts")
     public void testEnterIncorrectPin() {
-        when(bankMock.getCardById(cardPinMock.getCardId())).thenReturn(cardPinMock);
-        when(cardPinMock.getPin()).thenReturn("1234");
-        atm.insertCard(cardPinMock.getCardId());
-        boolean result = atm.enterPin(cardPinMock.getCardId(), "5678");
-        assertFalse(result);
+        String correctPin = "1234";
+        String incorrectPin = "5678";
+        String cardId = cardPinMock.getCardId();
+
+        when(bankMock.getCardById(cardId)).thenReturn(cardPinMock);
+        when(cardPinMock.getPin()).thenReturn(correctPin);
+
+        atm.insertCard(cardId);
+
+        when(bankMock.getFailedAttempts(cardId)).thenReturn(1);
+
+        int maxAttempts = atm.getMaxAttempts();
+        int failedAttempts = bankMock.getFailedAttempts(cardId);
+        int leftAttempts = maxAttempts - failedAttempts;
 
         ATMOperationException exception = assertThrows(
                 ATMOperationException.class,
-                () -> atm.enterPin(cardPinMock.getCardId(), "5678")
+                () -> atm.enterPin(cardId, incorrectPin),
+                String.format("Wrong pin.\nYour card will be locked after %s attempt(s).", leftAttempts)
         );
-        assertEquals("Card has been locked due to too many incorrect PIN entries.", exception.getMessage());
 
-        verify(bankMock, times(1)).incrementFailedAttempts(cardPinMock.getCardId());
+        assertEquals(String.format("Wrong pin.\nYour card will be locked after %s attempt(s).", leftAttempts), exception.getMessage());
+        verify(bankMock, times(1)).incrementFailedAttempts(cardId);
     }
 
     @Test
     @DisplayName("Locked card after pin being wrong 3 times")
     public void testCardLockAfterThreeFailedAttempts() {
         String cardId = cardMock.getCardId();
+        String incorrectPin = "0000";
+        String correctPin = "1234";
 
-        when(bankMock.getCardById(cardId)).thenReturn(cardMock);
-        when(bankMock.getFailedAttempts(cardId)).thenReturn(0, 1, 2, 3);
-        when(bankMock.isLocked(cardId)).thenReturn(false);
+        when(bankMock.getCardById(cardId)).thenReturn(cardPinMock);
+        when(cardPinMock.getPin()).thenReturn(correctPin);
+        when(bankMock.getFailedAttempts(cardId)).thenReturn(1, 2, 3);
 
         doAnswer(invocation -> {
             when(bankMock.isLocked(cardId)).thenReturn(true);
             return null;
         }).when(bankMock).lockCard(cardId);
 
-        for (int attempts = bankMock.getFailedAttempts(cardId); attempts < atm.getMaxAttempts(); attempts++) {
-            boolean result = atm.enterPin(cardId, "0000");
+        for (int i = 0; i < atm.getMaxAttempts(); i++) {
+            try {
+                atm.enterPin(cardId, incorrectPin);
+            } catch (ATMOperationException e) {
+                if (i < atm.getMaxAttempts() - 1) {
+                    assertEquals(
+                            String.format("Wrong pin.\nYour card will be locked after %s attempt(s).", atm.getMaxAttempts() - i - 1),
+                            e.getMessage()
+                    );
+                } else {
+                    assertEquals("Your card is locked! Contact your bank", e.getMessage());
+                }
+            }
         }
 
         verify(bankMock, times(1)).lockCard(cardId);
@@ -127,14 +155,37 @@ class ATMTest {
     }
 
     @ParameterizedTest
-    @DisplayName("Withdraw unsuccessful")
-    @ValueSource(ints = {9, -300, 1001})
-    public void testUnsuccessfulWithdraw(int requestedAmount){
+    @DisplayName("Withdraw extends balance")
+    @ValueSource(ints = {1001, 6456})
+    public void testRequestedWithdrawIsHigherThanBalance(int requestedAmount){
         double currentBalance = 1000;
         String cardId = cardMock.getCardId();
-
         when(bankMock.getBalance(cardId)).thenReturn(currentBalance);
-        atm.withdraw(cardId, requestedAmount);
+
+        ATMOperationException exception = assertThrows(
+                ATMOperationException.class,
+                () -> atm.withdraw(cardId, requestedAmount),
+                String.format("Your balance is not enough.")
+        );
+        assertEquals("Your balance is not enough.", exception.getMessage());
+        verify(bankMock, times(0)).setBalance(anyDouble());
+        assertEquals(currentBalance, bankMock.getBalance(cardId));
+    }
+
+    @ParameterizedTest
+    @DisplayName("Withdraw is under the minimum")
+    @ValueSource(ints = {9, 0})
+    public void testRequestedWithdrawIsUnderTheMinimum(int requestedAmount){
+        double currentBalance = 1000;
+        String cardId = cardMock.getCardId();
+        when(bankMock.getBalance(cardId)).thenReturn(currentBalance);
+
+        ATMOperationException exception = assertThrows(
+                ATMOperationException.class,
+                () -> atm.withdraw(cardId, requestedAmount),
+                String.format("Minimum withdraw amount is 10")
+        );
+        assertEquals("Minimum withdraw amount is 10", exception.getMessage());
         verify(bankMock, times(0)).setBalance(anyDouble());
         assertEquals(currentBalance, bankMock.getBalance(cardId));
     }
@@ -180,12 +231,17 @@ class ATMTest {
 
     @Test
     @DisplayName("Card is not inserted")
-    public void testNotInsertedCard(){
+    public void testNotInsertedCard() throws ATMOperationException{
         String cardId = cardMock.getCardId();
         when(bankMock.getCardById(cardId)).thenReturn(cardMock);
         when(bankMock.isCardValid(cardId)).thenReturn(false);
-        boolean isInserted = atm.insertCard(cardMock.getCardId());
-        assertFalse(isInserted);
+        ATMOperationException exception = assertThrows(
+                ATMOperationException.class,
+                () -> atm.insertCard(cardMock.getCardId()),
+                "The card is not valid"
+        );
+
+        assertEquals("The card is not valid", exception.getMessage());
         verify(bankMock, times(1)).getCardById(cardId);
     }
 
@@ -212,15 +268,72 @@ class ATMTest {
     @ParameterizedTest
     @DisplayName("Unsuccessful deposit")
     @ValueSource(doubles = {0.00, -12.55, -158+32})
-    public void testNotAddedToBalance(double attemptedDeposit){
+    public void testNotAddedToBalance(double attemptedDeposit) throws ATMOperationException{
         double currentBalance = 50;
         String cardId = cardMock.getCardId();
 
         when(bankMock.getBalance(cardId)).thenReturn(currentBalance);
-        atm.deposit(cardId, attemptedDeposit);
 
+        ATMOperationException exception = assertThrows(
+                ATMOperationException.class,
+                () -> atm.deposit(cardId, attemptedDeposit),
+                String.format("The ATM did not detect an amount.")
+        );
+
+        assertEquals("The ATM did not detect an amount.", exception.getMessage());
         verify(bankMock, times(0)).setBalance(anyDouble());
         assertEquals(currentBalance, bankMock.getBalance(cardId));
+
+
     }
 
+    @Test
+    @DisplayName("Change pin and reset failed attempts")
+    public void testChangePin() throws ATMOperationException{
+        when(bankMock.getCardById(cardPinMock.getCardId())).thenReturn(cardPinMock);
+        when(cardPinMock.getPin()).thenReturn("1234");
+        atm.insertCard(cardPinMock.getCardId());
+
+        String newPin = "8888", repatNewPin = "8888";
+        boolean result = atm.changePin(cardPinMock.getCardId(), "1234", newPin, repatNewPin);
+
+        assertTrue(result);
+        verify(bankMock, times(1)).resetFailedAttempts(cardPinMock.getCardId());
+    }
+
+    @Test
+    @DisplayName("Pin not provided when changing. Increase failed attempts")
+    public void testChangePinWithoutAuth() throws ATMOperationException {
+        when(bankMock.getCardById(cardPinMock.getCardId())).thenReturn(cardPinMock);
+        when(cardPinMock.getPin()).thenReturn("");
+        atm.insertCard(cardPinMock.getCardId());
+
+        String newPin = "8888", repatNewPin = "8888";
+
+        assertThrows(
+                ATMOperationException.class,
+                () -> atm.changePin(cardPinMock.getCardId(), "1234", newPin, repatNewPin),
+                "You have provided a faulty PIN value.\nOperation aborted.");
+
+        verify(bankMock, times(1)).incrementFailedAttempts(cardPinMock.getCardId());
+        verify(cardPinMock, never()).setPin(newPin);
+    }
+
+    @Test
+    @DisplayName("New pin and repeat pin mismatch")
+    public void testMissmatchingPins() throws ATMOperationException {
+        String cardId = cardPinMock.getCardId();
+        when(bankMock.getCardById(cardId)).thenReturn(cardPinMock);
+        when(cardPinMock.getPin()).thenReturn("1234");
+        atm.insertCard(cardPinMock.getCardId());
+
+        String newPin = "0000", repatNewPin = "8888";
+
+        assertThrows(
+                ATMOperationException.class,
+                () -> atm.changePin(cardPinMock.getCardId(), "1234", newPin, repatNewPin),
+                "Your new PIN entries mismatch. The operation is aborted.");
+
+        verify(cardPinMock, never()).setPin(newPin);
+    }
 }

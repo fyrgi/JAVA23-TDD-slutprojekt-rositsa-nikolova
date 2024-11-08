@@ -5,7 +5,6 @@ import java.util.Map;
 public class Bank implements BankInterface {
 
     private Map<String, Card> cardOfCustomer = new HashMap<>();
-    private YearMonth expiryDate;
     private double balance;
     private int failedAttempts = 0;
     private boolean isLocked = false;
@@ -27,10 +26,6 @@ public class Bank implements BankInterface {
     public double getBalance(String cardId) { return balance; }
 
     public void setBalance(double balance) { this.balance = balance; }
-
-    public YearMonth getExpiryDate(String cardId) {
-        return expiryDate;
-    }
 
     public static String getBankName() {
         return "Swedbank";
